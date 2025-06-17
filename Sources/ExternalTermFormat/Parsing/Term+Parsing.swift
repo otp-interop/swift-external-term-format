@@ -66,8 +66,7 @@ extension Term: ExpressibleByParsing {
         
         case 116: // map
             let arity = try UInt32(parsingBigEndian: &input)
-            var map = [Term:Term]()
-            map.reserveCapacity(Int(arity))
+            var map = [Term:Term](minimumCapacity: Int(arity))
             for _ in 0..<arity {
                 let key = try Term(parsing: &input)
                 let value = try Term(parsing: &input)
@@ -127,7 +126,7 @@ extension Term: ExpressibleByParsing {
             let freeVars = try [Term](parsing: &input, count: Int(numFree)) {
                 try Term(parsing: &$0)
             }
-            self = .newFun(
+            self = .fun(
                 arity: arity,
                 uniq: uniq,
                 index: index,

@@ -51,7 +51,7 @@ extension Term: CustomDebugStringConvertible {
         case let .reference(reference):
             String(describing: reference)
 
-        case let .newFun(arity, uniq, index, module, oldIndex, oldUniq, pid, freeVars):
+        case let .fun(arity, uniq, index, module, oldIndex, oldUniq, pid, freeVars):
             "#Function<\(module.debugDescription)/\(arity)>"
 
         case let .export(module, function, arity):

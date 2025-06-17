@@ -38,7 +38,7 @@ public enum Term: Hashable {
 
     case reference(Reference)
 
-    indirect case newFun(arity: UInt8, uniq: [UInt8], index: Int32, module: String, oldIndex: Int, oldUniq: Int, pid: PID, freeVars: [Term])
+    indirect case fun(arity: UInt8, uniq: [UInt8], index: Int32, module: String, oldIndex: Int, oldUniq: Int, pid: PID, freeVars: [Term])
 
     case export(module: String, function: String, arity: Int)
 
