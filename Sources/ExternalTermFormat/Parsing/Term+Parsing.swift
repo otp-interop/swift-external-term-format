@@ -14,8 +14,10 @@ extension Term: ExpressibleByParsing {
                     atomCacheRefs: try Array(
                         parsing: &input,
                         count: Int(numberOfAtomCacheRefs)
-                    ) { (span: inout ParserSpan) -> Term in
-                        try Term(parsing: &span)
+                    ) { (input: inout ParserSpan) -> UInt8 in
+                        guard try UInt8(parsing: &input) == 82 // atom cache ref
+                        else { fatalError() }
+                        return try UInt8(parsing: &input)
                     }
                 )
             } else {
@@ -30,56 +32,37 @@ extension Term: ExpressibleByParsing {
         case 99: // float
             self = .float(try String(parsingUTF8: &input, count: 31))
         
-        case 102: // port
-            self = .port(
-                node: try Term(parsing: &input),
-                id: try UInt32(parsingBigEndian: &input),
-                creation: try UInt8(parsing: &input)
-            )
-        case 89: // new port
-            self = .newPort(
-                node: try Term(parsing: &input),
-                id: try UInt32(parsingBigEndian: &input),
-                creation: try UInt32(parsingBigEndian: &input)
-            )
         case 120: // v4 port
-            self = .v4Port(
-                node: try Term(parsing: &input),
+            self = .port(Port(
+                node: try Term.atom(parsing: &input),
                 id: try UInt64(parsingBigEndian: &input),
                 creation: try UInt32(parsingBigEndian: &input)
-            )
+            ))
         
-        case 103: // pid
-            self = .pid(
-                node: try Term(parsing: &input),
-                id: try UInt32(parsingBigEndian: &input),
-                serial: try UInt32(parsingBigEndian: &input),
-                creation: try UInt8(parsing: &input)
-            )
         case 88: // new pid
-            self = .newPID(
-                node: try Term(parsing: &input),
+            self = .pid(PID(
+                node: try Term.atom(parsing: &input),
                 id: try UInt32(parsingBigEndian: &input),
                 serial: try UInt32(parsingBigEndian: &input),
                 creation: try UInt32(parsingBigEndian: &input)
-            )
+            ))
         
         case 104: // small tuple
-            let arity = try UInt8(parsing: &input)
-            var tuple = [Term]()
-            tuple.reserveCapacity(Int(arity))
-            for _ in 0..<arity {
-                tuple.append(try Term(parsing: &input))
-            }
-            self = .smallTuple(tuple)
+            let arity = Int(try UInt8(parsing: &input))
+            self = .smallTuple(try Array<Term>(unsafeUninitializedCapacity: arity) { buffer, initializedCount in
+                for i in 0..<arity {
+                    buffer[i] = try Term(parsing: &input)
+                }
+                initializedCount = arity
+            })
         case 105: // large tuple
-            let arity = try UInt32(parsingBigEndian: &input)
-            var tuple = [Term]()
-            tuple.reserveCapacity(Int(arity))
-            for _ in 0..<arity {
-                tuple.append(try Term(parsing: &input))
-            }
-            self = .largeTuple(tuple)
+            let arity = Int(try UInt32(parsingBigEndian: &input))
+            self = .largeTuple(try Array<Term>(unsafeUninitializedCapacity: arity) { buffer, initializedCount in
+                for i in 0..<arity {
+                    buffer[i] = try Term(parsing: &input)
+                }
+                initializedCount = arity
+            })
         
         case 116: // map
             let arity = try UInt32(parsingBigEndian: &input)
@@ -99,14 +82,13 @@ extension Term: ExpressibleByParsing {
             let length = try UInt16(parsingBigEndian: &input)
             self = .string(try [UInt8](parsing: &input, byteCount: Int(length)))
         case 108: // list
-            let length = try UInt32(parsingBigEndian: &input)
-            var list = [Term]()
-            list.reserveCapacity(Int(length))
-            for _ in 0..<length {
-                list.append(try Term(parsing: &input))
-            }
-            list.append(try Term(parsing: &input)) // tail
-            self = .list(list)
+            let length = Int(try UInt32(parsingBigEndian: &input))
+            self = .list(try Array<Term>(unsafeUninitializedCapacity: length + 1) { buffer, initializedCount in
+                for i in 0...length {
+                    buffer[i] = try Term(parsing: &input)
+                }
+                initializedCount = length
+            })
         case 109: // binary
             let length = try UInt32(parsingBigEndian: &input)
             self = .binary(try [UInt8](parsing: &input, byteCount: Int(length)))
@@ -124,20 +106,13 @@ extension Term: ExpressibleByParsing {
                 try [UInt8](parsing: &input, byteCount: Int(n))
             )
 
-        case 114: // new reference
-            let length = try UInt16(parsingBigEndian: &input)
-            self = .newReference(
-                node: try Term(parsing: &input),
-                creation: try UInt8(parsing: &input),
-                id: try [UInt8](parsing: &input, byteCount: Int(length))
-            )
         case 90: // newer reference
             let length = try UInt16(parsingBigEndian: &input)
-            self = .newerReference(
-                node: try Term(parsing: &input),
+            self = .reference(Reference(
+                node: try Term.atom(parsing: &input),
                 creation: try UInt32(parsingBigEndian: &input),
                 id: try [UInt8](parsing: &input, byteCount: Int(length))
-            )
+            ))
 
         case 112: // new fun
             _ = try UInt32(parsingBigEndian: &input) // size
@@ -145,10 +120,10 @@ extension Term: ExpressibleByParsing {
             let uniq = try [UInt8](parsing: &input, byteCount: 16)
             let index = try Int32(parsingBigEndian: &input)
             let numFree = try UInt32(parsingBigEndian: &input)
-            let module = try Term(parsing: &input)
-            let oldIndex = try Term(parsing: &input)
-            let oldUniq = try Term(parsing: &input)
-            let pid = try Term(parsing: &input)
+            let module = try Term.atom(parsing: &input)
+            let oldIndex = try Term.integer(parsing: &input)
+            let oldUniq = try Term.integer(parsing: &input)
+            let pid = try PID(parsing: &input)
             let freeVars = try [Term](parsing: &input, count: Int(numFree)) {
                 try Term(parsing: &$0)
             }
@@ -165,9 +140,9 @@ extension Term: ExpressibleByParsing {
 
         case 113: // export
             self = .export(
-                module: try Term(parsing: &input),
-                function: try Term(parsing: &input),
-                arity: try Term(parsing: &input)
+                module: try Term.atom(parsing: &input),
+                function: try Term.atom(parsing: &input),
+                arity: try Term.integer(parsing: &input)
             )
 
         case 77: // bit binary
@@ -191,5 +166,45 @@ extension Term: ExpressibleByParsing {
         default:
             fatalError()
         }
+    }
+
+    @inline(__always)
+    @usableFromInline
+    static func atom(parsing input: inout ParserSpan) throws(ThrownParsingError) -> String {
+        switch try UInt8(parsing: &input) {
+        case 118: // atom utf8
+            let length = try UInt16(parsingBigEndian: &input)
+            return try String(parsingUTF8: &input, count: Int(length))
+        case 119: // small atom utf8
+            let length = try UInt8(parsing: &input)
+            return try String(parsingUTF8: &input, count: Int(length))
+        default:
+            fatalError()
+        }
+    }    
+
+    @inline(__always)
+    @usableFromInline
+    static func integer(parsing input: inout ParserSpan) throws(ThrownParsingError) -> Int {
+        switch try UInt8(parsing: &input) {
+        case 97: // small integer
+            return Int(try UInt8(parsing: &input))
+        case 98: // integer
+            return Int(try Int32(parsingBigEndian: &input))
+        default:
+            fatalError()
+        }
+    }
+}
+
+extension PID: ExpressibleByParsing {
+    @inlinable @inline(__always)
+    public init(parsing input: inout ParserSpan) throws(ThrownParsingError) {
+        guard try UInt8(parsing: &input) == 88
+        else { fatalError() }
+        self.node = try Term.atom(parsing: &input)
+        self.id = try UInt32(parsingBigEndian: &input)
+        self.serial = try UInt32(parsingBigEndian: &input)
+        self.creation = try UInt32(parsingBigEndian: &input)
     }
 }

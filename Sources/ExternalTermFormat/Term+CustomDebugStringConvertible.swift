@@ -16,17 +16,11 @@ extension Term: CustomDebugStringConvertible {
         case let .float(float):
             float
 
-        case let .port(node, id, creation):
-            "#Port<\(node.debugDescription), \(id), \(creation)>"
-        case let .newPort(node, id, creation):
-            "#Port<\(node.debugDescription), \(id), \(creation)>"
-        case let .v4Port(node, id, creation):
-            "#Port<\(node.debugDescription), \(id), \(creation)>"
+        case let .port(port):
+            String(describing: port)
 
-        case let .pid(node, id, serial, creation):
-            "#PID<\(node.debugDescription), \(id), \(serial), \(creation)>"
-        case let .newPID(node, id, serial, creation):
-            "#PID<\(node.debugDescription), \(id), \(serial), \(creation)>"
+        case let .pid(pid):
+            String(describing: pid)
         
         case let .smallTuple(tuple):
             "{\(tuple.map(\.debugDescription).joined(separator: ","))}"
@@ -54,10 +48,8 @@ extension Term: CustomDebugStringConvertible {
         case .largeBig:
             "<large big>"
 
-        case let .newReference(node, creation, id):
-            "#Reference<\(node.debugDescription), \(creation), \(id)>"
-        case let .newerReference(node, creation, id):
-            "#Reference<\(node.debugDescription), \(creation), \(id)>"
+        case let .reference(reference):
+            String(describing: reference)
 
         case let .newFun(arity, uniq, index, module, oldIndex, oldUniq, pid, freeVars):
             "#Function<\(module.debugDescription)/\(arity)>"
