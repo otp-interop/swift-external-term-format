@@ -25,7 +25,7 @@ public indirect enum Term: Hashable {
     case smallTuple([Term])
     case largeTuple([Term])
     
-    case map([Term])
+    case map([Term:Term])
 
     public struct MapPair: Hashable {
         public let key: Term
@@ -58,7 +58,7 @@ public indirect enum Term: Hashable {
 
     case bitBinary(bits: UInt8, [UInt8])
 
-    case newFloat([UInt8])
+    case newFloat(Double)
 
     case atomUTF8(String)
 

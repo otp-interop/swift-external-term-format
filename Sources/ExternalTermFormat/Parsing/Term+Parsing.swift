@@ -1,8 +1,7 @@
 import BinaryParsing
 
 extension Term: ExpressibleByParsing {
-    @_alwaysEmitIntoClient
-    @inlinable
+    @inlinable @inline(__always)
     public init(parsing input: inout ParserSpan) throws(ThrownParsingError) {
         switch try UInt8(parsing: &input) {
         case 131: // version header
@@ -84,11 +83,12 @@ extension Term: ExpressibleByParsing {
         
         case 116: // map
             let arity = try UInt32(parsingBigEndian: &input)
-            var map = [Term]()
+            var map = [Term:Term]()
             map.reserveCapacity(Int(arity))
             for _ in 0..<arity {
-                map.append(try Term(parsing: &input))
-                map.append(try Term(parsing: &input))
+                let key = try Term(parsing: &input)
+                let value = try Term(parsing: &input)
+                map[key] = value
             }
             self = .map(map)
 
@@ -105,6 +105,7 @@ extension Term: ExpressibleByParsing {
             for _ in 0..<length {
                 list.append(try Term(parsing: &input))
             }
+            list.append(try Term(parsing: &input)) // tail
             self = .list(list)
         case 109: // binary
             let length = try UInt32(parsingBigEndian: &input)
@@ -177,7 +178,7 @@ extension Term: ExpressibleByParsing {
             )
 
         case 70: // new float
-            self = .newFloat(try [UInt8](parsing: &input, byteCount: 8))
+            self = .newFloat(Double(bitPattern: try UInt64(parsingBigEndian: &input)))
 
         case 118: // atom utf8
             let length = try UInt16(parsingBigEndian: &input)
